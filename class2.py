@@ -1,151 +1,153 @@
-
-from datetime import datetime
+# Imports
+from datetime import datetime, timedelta
 import tkinter as tk
-from tkinter import *
-from tkinter import Canvas, ttk
-from tkinter import messagebox
-from tkcalendar import Calendar
-
+from tkinter import filedialog, ttk, Label, Button, Tk, BooleanVar, Checkbutton, Radiobutton, StringVar
+import pandas as pd
 import csv
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.pyplot as plt
 
-def exit_program():
+
+# Select file function
+def select_file():
+    # File dialog box window config
+    window = tk.Tk()
+    window.withdraw()
+
+    # Open a file dialog box to select the CSV file
+    filepath = filedialog.askopenfilename(filetypes=[('CSV Files', '*.csv')])
+
+    # Close the file dialog box window
     window.destroy()
 
-def update_time():
-    global time_start
-    time_start = "2020-01-18T" + str(starthr_box.get()) + ":" + str(startmin_box.get()) + ":00Z"
-    global time_end
-    time_end = "2020-01-18T" + str(endhr_box.get()) + ":" + str(endmin_box.get()) + ":00Z"
+    # Check if a file was selected
+    if filepath:
+        return pd.read_csv(filepath), filepath
+    else:
+        print("No file selected.")
+        exit()
 
+# Assign variables 
+data, filepath = select_file()
+
+
+# Time range function
+def read_datetime_values_from_csv(filepath):
+    local_datetime_values = []
+    with open(filepath, 'r') as file:
+        csv_reader = csv.DictReader(file)
+        for row in csv_reader:
+            local_datetime_values.append(datetime.strptime(row['Datetime (UTC)'], '%Y-%m-%dT%H:%M:%SZ'))
+    return local_datetime_values
+
+
+# Extract first and last datetime values
+datetime_values = read_datetime_values_from_csv(filepath)
+
+first_datetime = datetime_values[0]
+last_datetime = datetime_values[-1]
+
+minutes_range = int((last_datetime - first_datetime).total_seconds() / 60) + 1
+datetime_range = [first_datetime + timedelta(minutes=x) for x in range(0, minutes_range)]
+
+datetime_strings = [dt.strftime('%Y-%m-%d %H:%M:%S') for dt in datetime_range]
+
+# Create Graph Function
 def create_graphs():
 
-    update_time()
+    # Assign start and end datetimes from selection
+    start_datetime = start_datetime_combobox.get()
+    end_datetime = end_datetime_combobox.get()
 
-    global xaxis
+    filtered_data = data[(data['Datetime (UTC)'] >= start_datetime) & (data['Datetime (UTC)'] <= end_datetime)]
 
-    popup_window = tk.Toplevel()  # Create a new popup window
-    popup_window.title("Popup Window")
-    popup_window.attributes("-fullscreen", True)
-    popup_window.geometry("300x200")  # Set the size of the popup window
+    # Extract necessary data for plotting
+    x1 = filtered_data['Datetime (UTC)']
+    y1 = filtered_data['Acc magnitude avg']
+    y2 = filtered_data['Eda avg']
+    y3 = filtered_data['Temp avg']
+    y4 = filtered_data['Movement intensity']
+    y5 = filtered_data['Steps count']
+    y6 = filtered_data['Rest']
 
-    # Create toolbar
-    toolbar = tk.Frame(popup_window, bg="gray")
-    toolbar.pack(side=tk.TOP, fill=tk.X, expand=True)  # Use fill=tk.X and expand=True
+    # Create the figure and subplots
+    fig = plt.figure(figsize=(12, 8))
 
-    exit_button = tk.Button(toolbar, text="    X    ", command=exit_program)
-    exit_button.pack(side=tk.RIGHT)
+    plot_index = 1
 
-    file_path = "C:/Users/owner/Downloads/Dataset (2)/Dataset/20200118/310/summary.csv" #file path specific to YOUR computer
-    if file_path:
-        columns = []  # List to store each column
-        with open(file_path, "r") as file:
-            reader = csv.reader(file)
-            next(reader)  # Skip the first row (title row)
-            for row in reader:
-                if not columns:
-                    columns = [[] for _ in row]  # Create a list for each column
-                for i, value in enumerate(row):
-                    columns[i].append(value)
+    # First subplot
+    if bool_1.get():
+        ax1 = fig.add_subplot(2, 3, plot_index)
+        ax1.plot(x1, y1)
+        ax1.set_title('Acc Mag Evg')
+        plot_index += 1
 
-    global startIndex
-    global endIndex
+    # Second subplot
+    if bool_2.get():
+        ax2 = fig.add_subplot(2, 3, plot_index)
+        ax2.plot(x1, y2)
+        ax2.set_title('EDA Avg')
+        plot_index += 1
 
-    try:
-        startIndex = columns[0].index(time_start)
-        print(f"Value found at index {startIndex}")
-    except ValueError:
-        print("Value not found in the list")
+    # Third subplot
+    if bool_3.get():
+        ax3 = fig.add_subplot(2, 3, plot_index)
+        ax3.plot(x1, y3)
+        ax3.set_title('Temp Avg')
+        plot_index += 1
 
-    try:
-        endIndex = columns[0].index(time_end)
-        print(f"Value found at index {endIndex}")
-    except ValueError:
-        print("Value not found in the list")
+    # Fourth subplot
+    if bool_4.get():
+        ax4 = fig.add_subplot(2, 3, plot_index)
+        ax4.plot(x1, y4)
+        ax4.set_title('Movement Intensity')
+        plot_index += 1
 
-    timelist = columns[0]
+    # Fifth subplot
+    if bool_5.get():
+        ax5 = fig.add_subplot(2, 3, plot_index)
+        ax5.plot(x1, y5)
+        ax5.set_title('Steps Count')
+        plot_index += 1
 
-    # Truncate the list
-    truncated_list = slice(startIndex, endIndex)
-    xaxis = timelist[truncated_list]
+    # Sixth subplot
+    if bool_6.get():
+        ax6 = fig.add_subplot(2, 3, plot_index)
+        ax6.plot(x1, y6)
+        ax6.set_title('Rest')
+        plot_index += 1
 
-    class GraphColumn:
-        def __init__(self, title, columnNum, display):
-            self.title = title
-            self.display = display
-            self.columnData = columns[columnNum]
+    # Adjust the spacing between subplots
+    fig.tight_layout()
 
-    acc = GraphColumn("Magntiude of Acceleration", 3, bool_1.get())
-    eda = GraphColumn("Average EDA", 4, bool_2.get())
-    temp = GraphColumn("Average Temperature", 5, bool_3.get())
-    move = GraphColumn("Movement", 6, bool_4.get())
-    step = GraphColumn("Step Count", 7, bool_5.get())
-    rest = GraphColumn("Rest Interval", 8, bool_6.get())
+    # Display the figure
+    plt.show()
 
-    global columnArray
-    columnArray = [acc, eda, temp, move, step, rest]
 
-    y = 4
-
-    # Create a figure and four subplots
-    fig = Figure(figsize=(10, 8))
-    fig.subplots_adjust(hspace=0.5)  # Adjust spacing between subplots
-    
-    ax1 = fig.add_subplot(231)
-    ax2 = fig.add_subplot(232)
-    ax3 = fig.add_subplot(233)
-    ax4 = fig.add_subplot(234)
-    ax5 = fig.add_subplot(235)
-    ax6 = fig.add_subplot(236)
-
-    global yaxis
-    axes = [ax1, ax2, ax3, ax4, ax5, ax6]
-    
-    j = 0
-    for i in range (len(axes)):
-        if columnArray[i].display:
-            newlist = columnArray[i].columnData
-            yaxis = newlist[slice(startIndex, endIndex)]
-            axes[j].plot(xaxis, yaxis)
-            axes[j].set_title(columnArray[i].title, fontsize=10, fontweight='bold')
-
-            
-                # Customize x-axis tick labels
-            x_ticks = len(xaxis) // 5  # Adjust the divisor to control the number of labels
-            x_tick_indices = range(0, len(xaxis), x_ticks)
-            x_tick_labels = [xaxis[i] for i in x_tick_indices]
-            axes[j].set_xticks(x_tick_indices)
-            axes[j].set_xticklabels(x_tick_labels, rotation=15)  # Rotate labels if needed
-
-            if(i == 0 or i == 1 or i == 2):
-                # Customize y-axis tick labels
-                y_ticks = len(yaxis) // 5  # Adjust the divisor to control the number of labels
-                y_tick_indices = range(0, len(yaxis), y_ticks)
-                y_tick_labels = [yaxis[i] for i in y_tick_indices]
-                axes[j].set_yticks(y_tick_indices)
-                axes[j].set_yticklabels(y_tick_labels)    
-
-            j = j + 1
-
-    # Create a Tkinter canvas containing the Matplotlib figure
-    canvas = FigureCanvasTkAgg(fig, master=popup_window)
-    canvas.draw()
-    canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-    # Add the canvas to the Tkinter window
-    canvas.get_tk_widget().pack()
-
-# the main Tkinter window
+# Data selection window config
 window = Tk()
-window.attributes('-fullscreen', False)  # Set the window to fullscreen
+window.attributes('-fullscreen', False)
 window.configure(background="#D3DCED")
+window.title('Health Monitor')
 
 # Title label
 title_label = tk.Label(window, text="Select Biometrics to Display",font=("ariel",20),background="#D3DCED")
-title_label.grid(row=1,column=4, columnspan=2)
+title_label.grid(row=1,column=1, columnspan=2)
 
-# Boolean values 
+# Comboboxes
+label = Label(window, text="Select a Start Datetime:",background="#D3DCED")
+label.grid(row=3, column=2)
+
+label = Label(window, text="Select an End Datetime:",background="#D3DCED")
+label.grid(row=4, column=2)
+
+start_datetime_combobox = ttk.Combobox(window, values=datetime_strings)
+start_datetime_combobox.grid(row=3, column=3, columnspan=2)
+
+end_datetime_combobox = ttk.Combobox(window, values=datetime_strings)
+end_datetime_combobox.grid(row=4, column=3, columnspan=2)
+
+
+# Checkbuttons
 bool_1 = tk.BooleanVar()
 bool_2 = tk.BooleanVar()
 bool_3 = tk.BooleanVar()
@@ -153,7 +155,6 @@ bool_4 = tk.BooleanVar()
 bool_5 = tk.BooleanVar()
 bool_6 = tk.BooleanVar()
 
-# Boolean check boxes
 boolBox_1 = tk.Checkbutton(window, text="Magnitude of Acceleration", variable=bool_1, width=30, height=3,background="#D3DCED")
 boolBox_2 = tk.Checkbutton(window, text="Average EDA", variable=bool_2, width=30, height=3,background="#D3DCED")
 boolBox_3 = tk.Checkbutton(window, text="Average Temperature", variable=bool_3, width=30, height=3,background="#D3DCED")
@@ -161,7 +162,6 @@ boolBox_4 = tk.Checkbutton(window, text="Movement", variable=bool_4, width=30, h
 boolBox_5 = tk.Checkbutton(window, text="Step Count", variable=bool_5, width=30, height=3,background="#D3DCED")
 boolBox_6 = tk.Checkbutton(window, text="Rest Interval", variable=bool_6, width=30, height=3,background="#D3DCED")
 
-# Check box grid alignment 
 boolBox_1.grid(row=2,column=0)
 boolBox_2.grid(row=2,column=1)            
 boolBox_3.grid(row=3,column=0)            
@@ -169,95 +169,25 @@ boolBox_4.grid(row=3,column=1)
 boolBox_5.grid(row=4,column=0)            
 boolBox_6.grid(row=4,column=1) 
 
-def validate_date_range():
-    start_date = cal_start.get_date()
-    end_date = cal_end.get_date()
-    
-    min_date = datetime.strptime("1-17-2020", "%m-%d-%Y").date()
-    max_date = datetime.strptime("1-19-2020", "%m-%d-%Y").date()
-    
-    # Ensure all dates are of datetime.date type
-    if isinstance(start_date, str):
-        start_date = datetime.strptime(start_date, "%m-%d-%Y").date()
-    if isinstance(end_date, str):
-        end_date = datetime.strptime(end_date, "%m-%d-%Y").date()
-    
-    if start_date >= min_date and end_date <= max_date and end_date >= start_date:
-        messagebox.showinfo("Success", f"Selected range: {start_date} to {end_date}")
-    else:
-        messagebox.showerror("Error", "Selected range must be within 1-18-2020 to 1-19-2020 and end date should be greater or equal to start date.")
-
-
-# Create Start Date calendar
-label_start = tk.Label(window, text="Start Date:")
-label_start.grid(row=2, column=7)
-cal_start = Calendar(window, date_pattern='M-d-y')
-cal_start.grid(row=3, column=7, padx=10, pady=10)
-
-# Create End Date calendar
-label_end = tk.Label(window, text="End Date:")
-label_end.grid(row=2, column=9)
-cal_end = Calendar(window, date_pattern='M-d-y')
-cal_end.grid(row=3, column=9, padx=10, pady=10)
-
-# Create a button to validate the selected range
-button_validate = tk.Button(window, text="Validate", command=validate_date_range)
-button_validate.grid(row=4, column=8)
-
-
-# Radio Variable
-radio_var = tk.StringVar()
 
 # Radiobuttons
+radio_label = tk.Label(window, text="Select Time Interval",font=("ariel",10),background="#D3DCED")
+radio_label.grid(row=2,column=2)
+
+radio_var = tk.StringVar(value="UTC")
+
 radio_button1 = tk.Radiobutton(window, text="UTC", variable=radio_var, value="UTC")
-radio_button1.grid(row=2,column=4)
+radio_button1.grid(row=2,column=3)
 
 radio_button2 = tk.Radiobutton(window, text="LOCAL TIME", variable=radio_var, value="OTHER TIME")
-radio_button2.grid(row=2,column=5)
+radio_button2.grid(row=2,column=4)
 
-# Radiobutton label
-radio_label = tk.Label(window, text="Select Time Interval",font=("ariel",10),background="#D3DCED")
-radio_label.grid(row=2,column=3, padx=10)
 
-# Combobox
-starthr_box = ttk.Combobox(window, values=["{:02d}".format(h) for h in range(24)], background="#B4C9D6")
-starthr_box.grid(row=3,column=4)
-starthr_box.current(0)
-startmin_box = ttk.Combobox(window, values=["{:02d}".format(m) for m in range(0,60)])
-startmin_box.grid(row=3,column=5)
-startmin_box.current(0)
+# Plot button
+plot_button = Button(master=window,command=create_graphs,height=2,width=10,text="Plot")
+plot_button.grid(row=6, column=1, pady=10)
 
-endhr_box = ttk.Combobox(window, values=["{:02d}".format(h) for h in range(24)],background="#B4C9D6")
-endhr_box.grid(row=4,column=4)
-endhr_box.current(1)
-endmin_box = ttk.Combobox(window, values=["{:02d}".format(m) for m in range(0,60)])
-endmin_box.grid(row=4,column=5)
-endmin_box.current(0)
 
-starthr_box.bind("<<ComboboxSelected>>", lambda _: update_time())
-startmin_box.bind("<<ComboboxSelected>>", lambda _: update_time())
-endhr_box.bind("<<ComboboxSelected>>", lambda _: update_time())
-endmin_box.bind("<<ComboboxSelected>>", lambda _: update_time())
-
-# Combobox labels
-combo1_label = tk.Label(window, text="Select Start Time",font=("ariel",10),background="#D3DCED")
-combo1_label.grid(row=3, column=3, padx=10)
-combo2_label = tk.Label(window, text="Select End Time",font=("ariel",10),background="#D3DCED")
-combo2_label.grid(row=4, column=3, padx=10)
-
-# setting the title
-window.title('Health Monitor')
-
-# button that displays the plot
-plot_button = Button(master=window,
-                     command=create_graphs,
-                     height=2,
-                     width=10,
-                     text="Plot")
-
-# place the button in the main window
-plot_button.grid(row=6, column=3, pady=10)
-
-# run the gui
+# Execute 
 window.mainloop()
     
